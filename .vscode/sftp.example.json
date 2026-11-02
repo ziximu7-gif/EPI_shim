@@ -1,0 +1,19 @@
+{
+    "name": "MRI_Server",
+    "host": "<your-server-ip>",
+    "protocol": "sftp",
+    "port": 22,
+    "username": "<your-username>",
+    "remotePath": "/home/<your-username>/EPI_SHIM",
+    "uploadOnSave": true,
+    "useTempFile": false,
+    "openSsh": true,
+    "ignore": [
+        ".vscode",
+        ".git",
+        "__pycache__",
+        "*.nii.gz",
+        "*.nii",
+        "*.mat"
+    ]
+}

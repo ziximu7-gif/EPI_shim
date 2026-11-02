@@ -1,0 +1,18 @@
+{
+  "python.defaultInterpreterPath": "C:\\Users\\Public\\Software\\Anaconda3\\python.exe",
+  "python.terminal.activateEnvironment": true,
+
+  "terminal.integrated.profiles.windows": {
+    "PowerShell (base_clone)": {
+      "source": "PowerShell",
+      "args": [
+        "-NoExit",
+        "-Command",
+        "conda activate base"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell (base_clone)",
+  "python-envs.defaultEnvManager": "ms-python.python:conda",
+  "python-envs.defaultPackageManager": "ms-python.python:conda"
+}

@@ -1,0 +1,80 @@
+{
+  "project": {
+    "name": "dynamic_shim",
+    "subject_id": "sub001",
+    "session_id": "sess01",
+    "root_dir": "./project_data"
+  },
+
+  "hardware": {
+    "coil_count": 8,
+    "coil_channels": [1, 2, 3, 4, 5, 6, 7, 8],
+    "current_limit_A": 2.0,
+    "current_unit": "A",
+    "serial": {
+      "port": "COM11",
+      "baudrate": 115200
+    }
+  },
+
+  "geometry": {
+    "cylinder_radius_mm": 145.0,
+    "coil_turns": 1,
+    "coil_div": 100,
+    "coil_shape": "loop"
+  },
+
+  "coil_layout": {
+    "z_mm": [-60, -40, -20, 0, 20, 40, 60, 80],
+    "theta_deg": [0, 45, 90, 135, 180, 225, 270, 315],
+    "r_mm": [145, 145, 145, 145, 145, 145, 145, 145]
+  },
+
+  "stage1_calibration": {
+    "enabled": true,
+    "test_currents_mA": [100, 300, 500, 800],
+    "settle_time_s": 0.2,
+    "repeat": 3,
+    "output_file": "./project_data/calibration/calibration_result.json"
+  },
+
+  "stage2_basis_scan": {
+    "enabled": true,
+    "scan_protocol_name": "SE_EPI_B0_basis",
+    "coil_scan_current_A": 0.5,
+    "reference_current_A": 0.0,
+    "scan_order": [1, 2, 3, 4, 5, 6, 7, 8],
+    "output_dir": "./project_data/basis_scan"
+  },
+
+  "stage3_shim_fit": {
+    "enabled": true,
+    "shim_mode": "slice_wise_tra",
+    "slice_order": "ascending",
+    "regularization_lambda": 0.0,
+    "mask": {
+      "mag_thr_ratio": 0.12,
+      "erode_radius": 1,
+      "b0_mad_factor": 5,
+      "min_cluster": 20,
+      "min_valid_per_slice": 150
+    },
+    "input": {
+      "b0_map_file": "./project_data/shim_input/b0map_train.mat",
+      "basis_file": "./project_data/basis_scan/basis_fields.mat"
+    },
+    "output": {
+      "shim_coeff_csv": "./project_data/shim_result/dynamic_shim_slice_currents.csv",
+      "shim_coeff_mat": "./project_data/shim_result/dynamic_shim_result.mat"
+    }
+  },
+
+  "stage4_online_control": {
+    "enabled": true,
+    "trigger_mode": "manual_enter",
+    "send_zero_before_each_slice": true,
+    "send_zero_on_exit": true,
+    "min_valid_voxels": 150,
+    "slice_table_csv": "./project_data/shim_result/dynamic_shim_slice_currents.csv"
+  }
+}
