@@ -10,6 +10,7 @@
     "coil_count": 8,
     "coil_channels": [1, 2, 3, 4, 5, 6, 7, 8],
     "current_limit_A": 2.0,
+    "_current_limit_comment": "单方向电流绝对上限(A)。修改时需同步: code/Coil_Slice_Current_Shim.ipynb 的 SHIM_CU/SHIM_CL, 以及 code/coil_control*.py 的 CURRENT_LIMIT_MA(=A*1000, 且<=4095)",
     "current_unit": "A",
     "serial": {
       "port": "COM11",

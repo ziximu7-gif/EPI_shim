@@ -49,13 +49,26 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
     return StatusFrame(ch=ch, status=status, raw=s)
 
 
+# ============================================================
+# 电流幅值上限（单位：mA，指单个方向的绝对值）
+#   -> 与 code/Coil_Slice_Current_Shim.ipynb 中的 shim_cu / shim_cl 保持一致
+#   -> 与 Global_parameter.json 中的 hardware.current_limit_A 保持一致
+# 协议限制：BDAC + 通道(1位) + 方向(1位) + 数值(4位十六进制) + OV
+#   数值字段为 %04X，因此硬上限不得超过 4095 mA，否则命令长度越界。
+# ============================================================
+CURRENT_LIMIT_MA = 2000
+assert CURRENT_LIMIT_MA <= 0xFFF, "CURRENT_LIMIT_MA must fit 4 hex digits (<=4095)"
+
+
 def make_dac_cmd(channel: int, direction: int, current_mA: int) -> str:
     if not (1 <= channel <= 8):
         raise ValueError("channel must be 1..8")
     if direction not in (0, 1):
         raise ValueError("direction must be 0 or 1")
-    if not (0 <= current_mA <= 2000):
-        raise ValueError("current_mA out of range (0..2000)")
+    if not (0 <= current_mA <= CURRENT_LIMIT_MA):
+        raise ValueError(
+            f"current_mA out of range (0..{CURRENT_LIMIT_MA}), got {current_mA}"
+        )
     return f"BDAC{channel}{direction}{current_mA:04X}OV"
 
 

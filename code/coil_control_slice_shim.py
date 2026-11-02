@@ -45,16 +45,41 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
     status = int(body[32:38])
     return StatusFrame(ch=ch, status=status, raw=s)
 
+# ============================================================
+# 电流幅值上限（单位：mA，指单个方向的绝对值）
+#   -> 与 code/Coil_Slice_Current_Shim.ipynb 中的 shim_cu / shim_cl 保持一致
+#   -> 与 Global_parameter.json 中的 hardware.current_limit_A 保持一致
+# 协议限制：BDAC + 通道(1位) + 方向(1位) + 数值(4位十六进制) + OV
+#   数值字段为 %04X，因此硬上限不得超过 4095 mA，否则命令长度越界。
+# ============================================================
+CURRENT_LIMIT_MA = 2000
+assert CURRENT_LIMIT_MA <= 0xFFF, "CURRENT_LIMIT_MA must fit 4 hex digits (<=4095)"
+
+# 超限时的处理方式：
+#   False -> 直接报错（默认，避免“以为发了 3A 实际只发了 2A”）
+#   True  -> 静默截断到上限（旧行为）
+ALLOW_CLIP = False
+
+
 def make_dac_cmd(channel: int, current_mA: int) -> str:
     """
     channel: 1..8
     current_mA: 这里的输入已经是经过转换后的整数 mA
     """
+    if not (1 <= channel <= 8):
+        raise ValueError("channel must be 1..8")
+
     direction = 1 if current_mA >= 0 else 0
     val = abs(current_mA)
-    if val > 2000:
-        val = 2000
-        
+
+    if val > CURRENT_LIMIT_MA:
+        if not ALLOW_CLIP:
+            raise ValueError(
+                f"ch{channel}: |current| = {val} mA exceeds CURRENT_LIMIT_MA "
+                f"= {CURRENT_LIMIT_MA} mA (set ALLOW_CLIP=True to clamp instead)"
+            )
+        val = CURRENT_LIMIT_MA
+
     return f"BDAC{channel}{direction}{val:04X}OV"
 
 class SerialMonitor:
