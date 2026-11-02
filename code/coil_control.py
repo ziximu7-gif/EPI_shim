@@ -6,6 +6,8 @@ import threading
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
+from config import get_setting, on_overflow_mode
+
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -50,14 +52,17 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
 
 
 # ============================================================
-# 电流幅值上限（单位：mA，指单个方向的绝对值）
-#   -> 与 code/Coil_Slice_Current_Shim.ipynb 中的 shim_cu / shim_cl 保持一致
-#   -> 与 Global_parameter.json 中的 hardware.current_limit_A 保持一致
+# 电流幅值上限 —— 统一来自项目根目录 Global_parameter.json 的 current.limits
+# 修改限值请改 Global_parameter.json，不要改这里。
+# 正负向可不同：direction=1 用 positive_A，direction=0 用 negative_A。
 # 协议限制：BDAC + 通道(1位) + 方向(1位) + 数值(4位十六进制) + OV
 #   数值字段为 %04X，因此硬上限不得超过 4095 mA，否则命令长度越界。
+#   （config.py 在加载时已校验这一点）
 # ============================================================
-CURRENT_LIMIT_MA = 2000
-assert CURRENT_LIMIT_MA <= 0xFFF, "CURRENT_LIMIT_MA must fit 4 hex digits (<=4095)"
+def _limit_ma_for_direction(direction: int) -> int:
+    cfg = get_setting()
+    key = "positive_A" if direction == 1 else "negative_A"
+    return int(round(abs(float(cfg["current"]["limits"][key])) * 1000))
 
 
 def make_dac_cmd(channel: int, direction: int, current_mA: int) -> str:
@@ -65,10 +70,17 @@ def make_dac_cmd(channel: int, direction: int, current_mA: int) -> str:
         raise ValueError("channel must be 1..8")
     if direction not in (0, 1):
         raise ValueError("direction must be 0 or 1")
-    if not (0 <= current_mA <= CURRENT_LIMIT_MA):
-        raise ValueError(
-            f"current_mA out of range (0..{CURRENT_LIMIT_MA}), got {current_mA}"
-        )
+
+    limit_ma = _limit_ma_for_direction(direction)
+    if not (0 <= current_mA <= limit_ma):
+        if on_overflow_mode() == "clip":
+            current_mA = max(0, min(current_mA, limit_ma))
+        else:
+            key = "positive_A" if direction == 1 else "negative_A"
+            raise ValueError(
+                f"current_mA out of range (0..{limit_ma}), got {current_mA} "
+                f"(limit from Global_parameter.json: current.limits.{key})"
+            )
     return f"BDAC{channel}{direction}{current_mA:04X}OV"
 
 
@@ -130,9 +142,10 @@ class SerialMonitor:
 
 
 def main():
-    PORT = "COM11"
-    BAUD = 115200
-    current_test = 500
+    cfg = get_setting()
+    PORT = cfg["serial"]["port"]
+    BAUD = cfg["serial"]["baudrate"]
+    current_test = int(cfg["current"]["test"]["single_channel_mA"])
 
     schedule = [
         [(1, 1, 0)],

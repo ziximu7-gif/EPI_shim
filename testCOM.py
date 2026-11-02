@@ -1,6 +1,14 @@
 # 测试串口是否连接
+import os
+import sys
 import time
 import serial
+
+# 串口参数统一来自项目根目录 Global_parameter.json
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "code"))
+from config import get_setting
+
+_cfg = get_setting()
 
 def iter_frames(ser):
     buf = bytearray()
@@ -21,10 +29,10 @@ def iter_frames(ser):
             del buf[:e+2]
             yield frame
 
-PORT="COM11"
-BAUD=115200
+PORT = _cfg["serial"]["port"]
+BAUD = _cfg["serial"]["baudrate"]
 
-with serial.Serial(PORT, BAUD, timeout=0.2) as ser:
+with serial.Serial(PORT, BAUD, timeout=_cfg["serial"]["timeout_s"]) as ser:
     ser.reset_input_buffer()
     time.sleep(0.2)
     ser.reset_input_buffer()

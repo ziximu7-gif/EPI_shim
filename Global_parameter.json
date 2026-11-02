@@ -1,21 +1,73 @@
 {
+  "_readme": [
+    "EPI_shim 统一配置文件 —— 所有可调参数（数据路径、电流、串口、算法）的唯一来源。",
+    "Python 脚本与 notebook 通过 code/config.py 读取本文件，无需关心当前工作目录。",
+    "单位约定：用户侧电流一律用 A；下发 DAC 前由 config.py 换算为整数 mA。",
+    "BDAC 协议数值字段为 4 位十六进制(%04X)，故单方向绝对值不得超过 current.protocol.max_mA。",
+    "修改后运行 `python code/config.py` 可自检并打印当前生效参数。"
+  ],
+
   "project": {
-    "name": "dynamic_shim",
-    "subject_id": "sub001",
-    "session_id": "sess01",
-    "root_dir": "./project_data"
+    "name": "dynamic_shim"
+  },
+
+  "data": {
+    "_comment": "数据根目录与文件名。root_dir 相对项目根目录，也可写绝对路径。",
+    "root_dir": "./data",
+    "subject": "sub-03",
+    "b0map_masked_file": "B0_map_Hz_to_master_masked.nii.gz",
+    "shimming_currents_csv": "shimming_currents.csv"
+  },
+
+  "serial": {
+    "port": "COM11",
+    "baudrate": 115200,
+    "timeout_s": 0.2
+  },
+
+  "current": {
+    "unit": "A",
+
+    "limits": {
+      "_comment": "优化器 lsq_linear 的上下界，同时作为下发 DAC 前的硬限幅。支持非对称。",
+      "positive_A": 2.0,
+      "negative_A": 2.0
+    },
+
+    "on_overflow": "raise",
+    "_on_overflow_comment": "raise = 超限直接报错; clip = 静默截断到上限",
+
+    "protocol": {
+      "max_mA": 4095,
+      "resolution_mA": 1
+    },
+
+    "test": {
+      "_comment": "coil_control.py 单通道连通性测试用电流",
+      "single_channel_mA": 500
+    },
+
+    "calibration_mA": [100, 300, 500, 800],
+    "basis_scan_A": 0.5,
+    "reference_A": 0.0
+  },
+
+  "shim": {
+    "mode": "slice_wise_tra",
+    "sessions": [1, 2, 3, 4, 5, 6, 7, 8, 10],
+    "_sessions_comment": "线圈扫描对应的 session 编号，代码自动格式化为 ses-01 形式",
+    "base_session": "ses-01"
+  },
+
+  "control": {
+    "_comment": "线圈电流下发相关",
+    "slice_count": 72,
+    "csv_current_unit": "A"
   },
 
   "hardware": {
     "coil_count": 8,
-    "coil_channels": [1, 2, 3, 4, 5, 6, 7, 8],
-    "current_limit_A": 2.0,
-    "_current_limit_comment": "单方向电流绝对上限(A)。修改时需同步: code/Coil_Slice_Current_Shim.ipynb 的 SHIM_CU/SHIM_CL, 以及 code/coil_control*.py 的 CURRENT_LIMIT_MA(=A*1000, 且<=4095)",
-    "current_unit": "A",
-    "serial": {
-      "port": "COM11",
-      "baudrate": 115200
-    }
+    "coil_channels": [1, 2, 3, 4, 5, 6, 7, 8]
   },
 
   "geometry": {
@@ -33,7 +85,7 @@
 
   "stage1_calibration": {
     "enabled": true,
-    "test_currents_mA": [100, 300, 500, 800],
+    "_test_currents_note": "电流值见 current.calibration_mA",
     "settle_time_s": 0.2,
     "repeat": 3,
     "output_file": "./project_data/calibration/calibration_result.json"
@@ -42,15 +94,14 @@
   "stage2_basis_scan": {
     "enabled": true,
     "scan_protocol_name": "SE_EPI_B0_basis",
-    "coil_scan_current_A": 0.5,
-    "reference_current_A": 0.0,
+    "_currents_note": "扫描电流见 current.basis_scan_A，参考电流见 current.reference_A",
     "scan_order": [1, 2, 3, 4, 5, 6, 7, 8],
     "output_dir": "./project_data/basis_scan"
   },
 
   "stage3_shim_fit": {
     "enabled": true,
-    "shim_mode": "slice_wise_tra",
+    "_mode_note": "拟合模式见 shim.mode",
     "slice_order": "ascending",
     "regularization_lambda": 0.0,
     "mask": {

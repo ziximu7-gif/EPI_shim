@@ -1,10 +1,13 @@
 #还没完全写好
+import os
 import time
 import serial
 import threading
 import csv
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
+
+from config import get_setting, on_overflow_mode, paths
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -46,19 +49,19 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
     return StatusFrame(ch=ch, status=status, raw=s)
 
 # ============================================================
-# 电流幅值上限（单位：mA，指单个方向的绝对值）
-#   -> 与 code/Coil_Slice_Current_Shim.ipynb 中的 shim_cu / shim_cl 保持一致
-#   -> 与 Global_parameter.json 中的 hardware.current_limit_A 保持一致
+# 电流幅值上限 —— 统一来自项目根目录 Global_parameter.json 的 current.limits
+# 修改限值请改 Global_parameter.json，不要改这里。
 # 协议限制：BDAC + 通道(1位) + 方向(1位) + 数值(4位十六进制) + OV
 #   数值字段为 %04X，因此硬上限不得超过 4095 mA，否则命令长度越界。
+#   （config.py 在加载时已校验这一点）
+# 超限处理由 Global_parameter.json 的 current.on_overflow 决定：
+#   "raise" -> 直接报错（默认，避免“以为发了 3A 实际只发了 2A”）
+#   "clip"  -> 静默截断到上限（旧行为）
 # ============================================================
-CURRENT_LIMIT_MA = 2000
-assert CURRENT_LIMIT_MA <= 0xFFF, "CURRENT_LIMIT_MA must fit 4 hex digits (<=4095)"
-
-# 超限时的处理方式：
-#   False -> 直接报错（默认，避免“以为发了 3A 实际只发了 2A”）
-#   True  -> 静默截断到上限（旧行为）
-ALLOW_CLIP = False
+def _limit_ma_for_direction(direction: int) -> int:
+    cfg = get_setting()
+    key = "positive_A" if direction == 1 else "negative_A"
+    return int(round(abs(float(cfg["current"]["limits"][key])) * 1000))
 
 
 def make_dac_cmd(channel: int, current_mA: int) -> str:
@@ -72,13 +75,17 @@ def make_dac_cmd(channel: int, current_mA: int) -> str:
     direction = 1 if current_mA >= 0 else 0
     val = abs(current_mA)
 
-    if val > CURRENT_LIMIT_MA:
-        if not ALLOW_CLIP:
+    limit_ma = _limit_ma_for_direction(direction)
+    if val > limit_ma:
+        if on_overflow_mode() == "clip":
+            val = limit_ma
+        else:
+            key = "positive_A" if direction == 1 else "negative_A"
             raise ValueError(
-                f"ch{channel}: |current| = {val} mA exceeds CURRENT_LIMIT_MA "
-                f"= {CURRENT_LIMIT_MA} mA (set ALLOW_CLIP=True to clamp instead)"
+                f"ch{channel}: |current| = {val} mA exceeds limit {limit_ma} mA "
+                f"(from Global_parameter.json: current.limits.{key}; "
+                f"set current.on_overflow=\"clip\" to clamp instead)"
             )
-        val = CURRENT_LIMIT_MA
 
     return f"BDAC{channel}{direction}{val:04X}OV"
 
@@ -120,42 +127,50 @@ def load_shimming_data(file_path: str):
     加载 CSV 数据。
     CSV 结构：
     第 1 行：编号 (跳过)
-    第 2-9 行：通道 1-8 的电流值 (单位 A)
-    返回格式：List[List[float]] -> 72层，每层8个以 mA 为单位的电流值
+    第 2-9 行：通道 1-8 的电流值 (单位由 Global_parameter.json 的 control.csv_current_unit 指定，
+              目前为 A)
+    返回格式：List[List[int]] -> 每层 8 个以 mA 为单位的电流值
     """
-    # 初始化 72 层，每层准备存放 8 个通道的数据
-    layers_data = [[] for _ in range(72)] 
-    
+    cfg = get_setting()
+    slice_count = int(cfg["control"]["slice_count"])
+    csv_unit_is_A = str(cfg["control"].get("csv_current_unit", "A")).upper() == "A"
+    scale = 1000.0 if csv_unit_is_A else 1.0
+
+    # 初始化各层，每层准备存放 8 个通道的数据
+    layers_data = [[] for _ in range(slice_count)]
+
     with open(file_path, 'r') as f:
         reader = list(csv.reader(f))
         for row in reader[1:9]:
             for layer_idx, val in enumerate(row):
-                if layer_idx < 72:
-                    current_mA = round(float(val) * 1000)
+                if layer_idx < slice_count:
+                    current_mA = round(float(val) * scale)
                     layers_data[layer_idx].append(current_mA)
-                    
+
     return layers_data
 
 # --- 主程序 ---
 
 def main():
-    PORT = "COM11"  
-    BAUD = 115200
-    CSV_FILE = r"..\data\sub-03\shimming_currents.csv"
+    cfg = get_setting()
+    PORT = cfg["serial"]["port"]
+    BAUD = cfg["serial"]["baudrate"]
+    slice_count = int(cfg["control"]["slice_count"])
+    CSV_FILE = str(paths(cfg).shimming_csv())
 
     # 1. 加载电流数据
     shimming_layers = load_shimming_data(CSV_FILE)
-    print(f"Successfully loaded {len(shimming_layers)} layers.")
+    print(f"Successfully loaded {len(shimming_layers)} layers from {CSV_FILE}")
 
     # 2. 启动串口和监控
-    with serial.Serial(PORT, baudrate=BAUD, timeout=0.2) as ser:
+    with serial.Serial(PORT, baudrate=BAUD, timeout=cfg["serial"]["timeout_s"]) as ser:
         mon = SerialMonitor(ser)
         mon.start()
 
         print("\n--- Dynamic Shimming Control Started ---")
-        
+
         for idx, currents in enumerate(shimming_layers):
-            print(f"\n[Layer {idx+1}/72] Ready to switch.")
+            print(f"\n[Layer {idx+1}/{slice_count}] Ready to switch.")
             print("Press ENTER to send currents, or Ctrl+C to quit...")
             input() 
 
@@ -171,7 +186,7 @@ def main():
                 # 如果底层单片机处理较慢，建议取消注释下面这行
                 # time.sleep(0.005) 
 
-        print("\nAll 72 layers completed.")
+        print(f"\nAll {slice_count} layers completed.")
         mon.stop()
 
 if __name__ == "__main__":
