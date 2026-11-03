@@ -1,9 +1,6 @@
 {
   "_readme": [
-    "EPI_shim 统一配置文件 —— 所有可调参数（数据路径、电流、串口、算法）的唯一来源。",
-    "Python 脚本与 notebook 通过 code/config.py 读取本文件，无需关心当前工作目录。",
     "单位约定：用户侧电流一律用 A；下发 DAC 前由 config.py 换算为整数 mA。",
-    "BDAC 协议数值字段为 4 位十六进制(%04X)，故单方向绝对值不得超过 current.protocol.max_mA。",
     "修改后运行 `python code/config.py` 可自检并打印当前生效参数。"
   ],
 
@@ -30,7 +27,7 @@
 
     "limits": {
       "_comment": "优化器 lsq_linear 的上下界，同时作为下发 DAC 前的硬限幅。支持非对称。",
-      "positive_A": 2.0,
+      "positive_A": 2.4,
       "negative_A": 2.0
     },
 

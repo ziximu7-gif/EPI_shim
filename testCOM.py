@@ -52,7 +52,7 @@ with serial.Serial(PORT, BAUD, timeout=_cfg["serial"]["timeout_s"]) as ser:
             first = f
         last = f
         n += 1
-        bytes_from_frames += len(f)   # 每帧长度（你这里通常是 41）
+        bytes_from_frames += len(f)   # 每帧长度
 
     dt = time.perf_counter() - t0
     print(f"frames={n}, seconds={dt:.3f}, rate={n/dt:.2f} Hz")

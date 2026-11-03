@@ -5,13 +5,13 @@ EPI_shim 统一配置加载模块。
 项目根目录的 Global_parameter.json。
 本模块负责：
   1. 定位并读取 Global_parameter.json（无需关心当前工作目录）
-  2. 提供单位换算：A <-> mA
-  3. 提供限幅工具：把任意电流裁到 [negative_A, positive_A]
+  2. 提供单位换算：A -> mA
+  3. 提供电流上下限（A / mA 两种单位，支持非对称）
   4. 解析数据目录与文件名（被 notebook 与下发脚本共用）
 
 用法（在 code/ 下的脚本或 notebook 中）::
 
-    from config import get_setting, A2mA, clip_current_A, paths
+    from config import get_setting, A2mA, paths
 
     cfg = get_setting()
     port = cfg["serial"]["port"]
@@ -35,6 +35,7 @@ CONFIG_FILENAME = "Global_parameter.json"
 
 _cached_path: Optional[Path] = None
 _cached_cfg: Optional[Dict[str, Any]] = None
+_cached_mtime: Optional[float] = None
 
 
 def find_setting_file(start: Optional[Path] = None) -> Path:
@@ -62,11 +63,18 @@ def find_setting_file(start: Optional[Path] = None) -> Path:
 
 
 def get_setting(reload: bool = False) -> Dict[str, Any]:
-    """读取并缓存 Global_parameter.json。reload=True 强制重新读取。"""
-    global _cached_path, _cached_cfg
+    """读取并缓存 Global_parameter.json。文件被修改后自动失效（按 mtime 判断）。"""
+    global _cached_path, _cached_cfg, _cached_mtime
 
     path = find_setting_file()
-    if _cached_cfg is not None and not reload and path == _cached_path:
+    mtime = path.stat().st_mtime
+
+    if (
+        _cached_cfg is not None
+        and not reload
+        and path == _cached_path
+        and mtime == _cached_mtime
+    ):
         return _cached_cfg
 
     with open(path, "r", encoding="utf-8") as f:
@@ -76,6 +84,7 @@ def get_setting(reload: bool = False) -> Dict[str, Any]:
 
     _cached_path = path
     _cached_cfg = cfg
+    _cached_mtime = mtime
     return cfg
 
 
@@ -85,7 +94,7 @@ def setting_path() -> Optional[Path]:
 
 
 def project_root() -> Path:
-    """返回项目根目录（即 Global_parameter.json 所在目录的父目录若在 code/ 下）。"""
+    """返回项目根目录（Global_parameter.json 所在目录）。"""
     p = _cached_path or find_setting_file()
     return p.parent
 
@@ -170,11 +179,6 @@ def A2mA(current_a: float) -> int:
     return int(round(float(current_a) * 1000.0))
 
 
-def mA2A(current_ma: float) -> float:
-    """毫安 -> 安培。"""
-    return float(current_ma) / 1000.0
-
-
 # ---------------- 电流上下限 ----------------
 
 def get_current_limits_A(cfg: Optional[Dict[str, Any]] = None):
@@ -184,25 +188,10 @@ def get_current_limits_A(cfg: Optional[Dict[str, Any]] = None):
     return -abs(float(limits["negative_A"])), abs(float(limits["positive_A"]))
 
 
-def get_current_limits_mA(limit_ma: Optional[int] = None):
-    """返回 (lower_mA, upper_mA)。limit_ma 给定时作为对称半幅值使用。"""
-    if limit_ma is not None:
-        half = abs(int(limit_ma))
-        return -half, half
-    lo, hi = get_current_limits_A()
-    return A2mA(lo), A2mA(hi)
-
-
-def clip_current_A(value: float, cfg: Optional[Dict[str, Any]] = None) -> float:
-    """把电流裁到配置的上下限内（单位 A）。"""
+def get_current_limits_mA(cfg: Optional[Dict[str, Any]] = None):
+    """返回 (lower_mA, upper_mA)，由 current.limits 换算而来。"""
     lo, hi = get_current_limits_A(cfg)
-    return min(max(float(value), lo), hi)
-
-
-def clip_current_mA(value_ma: float, cfg: Optional[Dict[str, Any]] = None) -> int:
-    """把电流裁到配置的上下限内（单位 mA，返回整数）。"""
-    lo, hi = get_current_limits_mA()
-    return int(round(min(max(float(value_ma), lo), hi)))
+    return A2mA(lo), A2mA(hi)
 
 
 def on_overflow_mode(cfg: Optional[Dict[str, Any]] = None) -> str:

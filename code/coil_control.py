@@ -6,7 +6,7 @@ import threading
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
-from config import get_setting, on_overflow_mode
+from config import get_setting, get_current_limits_mA, on_overflow_mode
 
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
@@ -33,7 +33,6 @@ def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
 class StatusFrame:
     ch: List[int]
     status: int
-    raw: str
 
 
 def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
@@ -48,7 +47,7 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
         return None
     ch = [int(body[i:i+4]) for i in range(0, 32, 4)]
     status = int(body[32:38])
-    return StatusFrame(ch=ch, status=status, raw=s)
+    return StatusFrame(ch=ch, status=status)
 
 
 # ============================================================
@@ -60,9 +59,9 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
 #   （config.py 在加载时已校验这一点）
 # ============================================================
 def _limit_ma_for_direction(direction: int) -> int:
-    cfg = get_setting()
-    key = "positive_A" if direction == 1 else "negative_A"
-    return int(round(abs(float(cfg["current"]["limits"][key])) * 1000))
+    """正/负方向各自的幅值上限（mA），来自 Global_parameter.json 的 current.limits。"""
+    lower_ma, upper_ma = get_current_limits_mA()
+    return upper_ma if direction == 1 else abs(lower_ma)
 
 
 def make_dac_cmd(channel: int, direction: int, current_mA: int) -> str:

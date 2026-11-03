@@ -1,5 +1,4 @@
-#还没完全写好
-import os
+#还需要修改
 import time
 import serial
 import threading
@@ -7,7 +6,7 @@ import csv
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
-from config import get_setting, on_overflow_mode, paths
+from config import get_setting, get_current_limits_mA, on_overflow_mode, paths
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -32,7 +31,6 @@ def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
 class StatusFrame:
     ch: List[int]
     status: int
-    raw: str
 
 def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
     try:
@@ -46,7 +44,7 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
         return None
     ch = [int(body[i:i+4]) for i in range(0, 32, 4)]
     status = int(body[32:38])
-    return StatusFrame(ch=ch, status=status, raw=s)
+    return StatusFrame(ch=ch, status=status)
 
 # ============================================================
 # 电流幅值上限 —— 统一来自项目根目录 Global_parameter.json 的 current.limits
@@ -56,12 +54,12 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
 #   （config.py 在加载时已校验这一点）
 # 超限处理由 Global_parameter.json 的 current.on_overflow 决定：
 #   "raise" -> 直接报错（默认，避免“以为发了 3A 实际只发了 2A”）
-#   "clip"  -> 静默截断到上限（旧行为）
+#   "clip"  -> 静默截断到上限
 # ============================================================
 def _limit_ma_for_direction(direction: int) -> int:
-    cfg = get_setting()
-    key = "positive_A" if direction == 1 else "negative_A"
-    return int(round(abs(float(cfg["current"]["limits"][key])) * 1000))
+    """正/负方向各自的幅值上限（mA），来自 Global_parameter.json 的 current.limits。"""
+    lower_ma, upper_ma = get_current_limits_mA()
+    return upper_ma if direction == 1 else abs(lower_ma)
 
 
 def make_dac_cmd(channel: int, current_mA: int) -> str:
@@ -112,14 +110,18 @@ class SerialMonitor:
         while not self.stop_evt.is_set():
             try:
                 frame = next(self.frames)
-            except:
+            except Exception as e:
+                print("MONITOR ERROR:", e)
                 return
             if self.flush_evt.is_set():
                 self.flush_evt.clear()
                 continue
             st = parse_status_frame(frame)
-            if st:
-                ts = time.perf_counter()
+            ts = time.perf_counter()
+            if st is None:
+                print(f"{ts:.6f} RX RAW: {frame!r}")
+            else:
+                print(f"{ts:.6f} RX STATUS: ch={st.ch} status={st.status}")
 
 
 def load_shimming_data(file_path: str):
