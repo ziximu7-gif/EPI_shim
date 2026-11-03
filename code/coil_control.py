@@ -59,7 +59,6 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
 #   （config.py 在加载时已校验这一点）
 # ============================================================
 def _limit_ma_for_direction(direction: int) -> int:
-    """正/负方向各自的幅值上限（mA），来自 Global_parameter.json 的 current.limits。"""
     lower_ma, upper_ma = get_current_limits_mA()
     return upper_ma if direction == 1 else abs(lower_ma)
 

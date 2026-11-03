@@ -27,6 +27,11 @@ data_/
 .env.*
 secrets*.json
 
+# ---------- 线圈架设计文件（不公开）----------
+*.scad
+# 线圈长度计算 notebook 若也不想公开，取消下一行注释
+# code/CalculateCoilLength.ipynb
+
 # ---------- Python ----------
 __pycache__/
 *.py[cod]
