@@ -1,5 +1,5 @@
 import SimpleITK as sitk
-
+# 暂时不需要使用
 # ref_img: 被试外/phantom 或 “参考空间”的结构图（或同几何的参考）
 # mov_img: 被试内结构像（3D GRE/MP2RAGE）
 ref_img = sitk.ReadImage("ref_struct.nii.gz", sitk.sitkFloat32)

@@ -6,7 +6,8 @@ import csv
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
-from config import get_setting, get_current_limits_mA, on_overflow_mode, paths
+from config import get_setting, paths
+from dacControl import send_dac_cmd
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -47,45 +48,10 @@ def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
     return StatusFrame(ch=ch, status=status)
 
 # ============================================================
-# 电流幅值上限 —— 统一来自项目根目录 Global_parameter.json 的 current.limits
-# 修改限值请改 Global_parameter.json，不要改这里。
-# 协议限制：BDAC + 通道(1位) + 方向(1位) + 数值(4位十六进制) + OV
-#   数值字段为 %04X，因此硬上限不得超过 4095 mA，否则命令长度越界。
-#   （config.py 在加载时已校验这一点）
 # 超限处理由 Global_parameter.json 的 current.on_overflow 决定：
-#   "raise" -> 直接报错（默认，避免“以为发了 3A 实际只发了 2A”）
+#   "raise" -> 直接报错
 #   "clip"  -> 静默截断到上限
 # ============================================================
-def _limit_ma_for_direction(direction: int) -> int:
-    """正/负方向各自的幅值上限（mA），来自 Global_parameter.json 的 current.limits。"""
-    lower_ma, upper_ma = get_current_limits_mA()
-    return upper_ma if direction == 1 else abs(lower_ma)
-
-
-def make_dac_cmd(channel: int, current_mA: int) -> str:
-    """
-    channel: 1..8
-    current_mA: 这里的输入已经是经过转换后的整数 mA
-    """
-    if not (1 <= channel <= 8):
-        raise ValueError("channel must be 1..8")
-
-    direction = 1 if current_mA >= 0 else 0
-    val = abs(current_mA)
-
-    limit_ma = _limit_ma_for_direction(direction)
-    if val > limit_ma:
-        if on_overflow_mode() == "clip":
-            val = limit_ma
-        else:
-            key = "positive_A" if direction == 1 else "negative_A"
-            raise ValueError(
-                f"ch{channel}: |current| = {val} mA exceeds limit {limit_ma} mA "
-                f"(from Global_parameter.json: current.limits.{key}; "
-                f"set current.on_overflow=\"clip\" to clamp instead)"
-            )
-
-    return f"BDAC{channel}{direction}{val:04X}OV"
 
 class SerialMonitor:
     def __init__(self, ser: serial.Serial):
@@ -182,11 +148,9 @@ def main():
             # 构造并发送该层所有 8 个通道的命令
             print(f"Sending currents for Layer {idx+1}: {currents}")
             for ch_idx, val in enumerate(currents):
-                channel = ch_idx + 1 # 通道从 1 开始
-                cmd = make_dac_cmd(channel, val)
-                ser.write(cmd.encode("ascii"))
-                # 如果底层单片机处理较慢，建议取消注释下面这行
-                # time.sleep(0.005) 
+                channel = ch_idx + 1
+                cmd = send_dac_cmd(ser, channel, val)
+                print(f"CH{channel}: {val} mA -> "f"{cmd.hex(' ').upper()}")
 
         print(f"\nAll {slice_count} layers completed.")
         mon.stop()
