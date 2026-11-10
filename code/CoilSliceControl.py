@@ -8,7 +8,7 @@ from typing import Iterator, Optional, List
 
 import math
 from config import get_setting, paths
-from dacControl import make_dac_cmd, send_dac_cmd
+from dacControl import make_dac_cmd, send_dac_cmd,  reset_all_currents
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -153,34 +153,6 @@ def apply_currents(ser, currents):
         )
     ser.flush()
 
-
-def reset_all_currents(ser):
-    """退出时尝试将全部8个通道设为0 mA。"""
-    print("Resetting all channels to 0 mA...")
-    errors = []
-    for channel in range(1, 9):
-        try:
-            cmd = send_dac_cmd(ser, channel, 0)
-            print(
-                f"CH{channel}: 0 mA -> "
-                f"{cmd.hex(' ').upper()}"
-            )
-        except Exception as exc:
-            errors.append(channel)
-            print(f"CH{channel} reset failed: {exc}")
-    try:
-        ser.flush()
-    except Exception as exc:
-        print(f"Serial flush failed: {exc}")
-        errors.append("serial_flush")
-
-    if errors:
-        raise RuntimeError(
-            f"Reset commands could not be completed: {errors}"
-        )
-
-
-
 def main():
     cfg = get_setting()
 
@@ -227,17 +199,8 @@ def main():
                     apply_currents(ser, currents)
 
         finally:
-            # 尽力在退出时将8通道归零
             try:
-                if cfg["stage4_online_control"].get(
-                    "send_zero_on_exit", True
-                ):
-                    print("Resetting all channels to 0 mA...")
-
-                    for ch in range(1, 9):
-                        send_dac_cmd(ser, ch, 0)
-
-                    ser.flush()
+                reset_all_currents(ser)
             finally:
                 mon.stop()
 

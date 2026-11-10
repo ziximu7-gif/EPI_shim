@@ -58,3 +58,27 @@ def send_dac_cmd(ser, channel: int, current_mA: int) -> bytes:
     cmd = make_dac_cmd(channel, current_mA)
     ser.write(cmd)
     return cmd
+
+def reset_all_currents(ser):
+    """退出时尝试将全部8个通道设为0 mA。"""
+    print("Resetting all channels to 0 mA...")
+    errors = []
+    for channel in range(1, 9):
+        try:
+            cmd = send_dac_cmd(ser, channel, 0)
+            print(
+                f"CH{channel}: 0 mA -> "
+                f"{cmd.hex(' ').upper()}"
+            )
+        except Exception as exc:
+            errors.append(channel)
+            print(f"CH{channel} reset failed: {exc}")
+    try:
+        ser.flush()
+    except Exception as exc:
+        errors.append("serial_flush")
+        print(f"Serial flush failed: {exc}")
+    if errors:
+        raise RuntimeError(
+            f"Reset commands could not be completed: {errors}"
+        )

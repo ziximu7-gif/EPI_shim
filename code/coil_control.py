@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
 from config import get_setting
-from dacControl import send_dac_cmd
+from dacControl import send_dac_cmd,reset_all_currents
 
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
@@ -126,22 +126,41 @@ def main():
         [(7, 1, 0), (8, 1, current_test)],
     ]
 
-    with serial.Serial(PORT, baudrate=BAUD, timeout=0.2) as ser:
+    with serial.Serial(
+        PORT,
+        baudrate=BAUD,
+        timeout=cfg["serial"]["timeout_s"],
+        write_timeout=1.0,
+    ) as ser:
+        ser.reset_input_buffer()
         mon = SerialMonitor(ser)
         mon.start()
+        try:
+            for rep, actions in enumerate(schedule):
+                wait_trigger()
 
-        for rep, actions in enumerate(schedule):
-            wait_trigger()
+                sent_cmds = []
 
-            sent_cmds = []
-            for (ch, direction, mA) in actions:
-                signed_mA = mA if direction == 1 else -mA
-                cmd = send_dac_cmd(ser, ch, signed_mA)
-                sent_cmds.append(cmd.hex(" ").upper())
+                for ch, direction, mA in actions:
+                    signed_mA = mA if direction == 1 else -mA
 
-            print(f"[rep={rep}] TX cmds: {sent_cmds}")
+                    cmd = send_dac_cmd(
+                        ser, ch, signed_mA
+                    )
 
-        mon.stop()
+                    sent_cmds.append(
+                        cmd.hex(" ").upper()
+                    )
+
+                print(
+                    f"[rep={rep}] TX cmds: {sent_cmds}"
+                )
+        finally:
+            try:
+                reset_all_currents(ser)
+            finally:
+                mon.stop()
+
 
 
 if __name__ == "__main__":
