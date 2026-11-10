@@ -4,31 +4,10 @@ import sys
 import time
 import serial
 
-# 串口参数统一来自项目根目录 Global_parameter.json
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "code"))
 from config import get_setting
 from serialMonitor import iter_frames
 
 _cfg = get_setting()
-
-def iter_frames(ser):
-    buf = bytearray()
-    while True:
-        buf += ser.read(4096)
-        while True:
-            try:
-                s = buf.index(ord("B"))
-            except ValueError:
-                buf.clear()
-                break
-            e = buf.find(b"OV", s + 1)
-            if e < 0:
-                if s > 0:
-                    del buf[:s]
-                break
-            frame = bytes(buf[s:e+2])
-            del buf[:e+2]
-            yield frame
 
 PORT = _cfg["serial"]["port"]
 BAUD = _cfg["serial"]["baudrate"]

@@ -1,59 +1,10 @@
-#还需要修改
-import time
-import serial
-import threading
 import csv
-from dataclasses import dataclass
-from typing import Iterator, Optional, List
+import math
+
+from config import get_setting, paths
+from dacControl import make_dac_cmd, send_dac_cmd
 from serialSession import coil_session
 
-import math
-from config import get_setting, paths
-from dacControl import make_dac_cmd, send_dac_cmd,  reset_all_currents
-
-def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
-    buf = bytearray()
-    while True:
-        buf += ser.read(4096)
-        while True:
-            try:
-                s = buf.index(ord("B"))
-            except ValueError:
-                buf.clear()
-                break
-            e = buf.find(b"OV", s + 1)
-            if e < 0:
-                if s > 0:
-                    del buf[:s]
-                break
-            frame = bytes(buf[s:e+2])
-            del buf[:e+2]
-            yield frame
-
-@dataclass
-class StatusFrame:
-    ch: List[int]
-    status: int
-
-def parse_status_frame(frame: bytes) -> Optional[StatusFrame]:
-    try:
-        s = frame.decode("ascii", errors="strict")
-    except UnicodeDecodeError:
-        return None
-    if not (s.startswith("B") and s.endswith("OV")):
-        return None
-    body = s[1:-2]
-    if len(body) != 38 or (not body.isdigit()):
-        return None
-    ch = [int(body[i:i+4]) for i in range(0, 32, 4)]
-    status = int(body[32:38])
-    return StatusFrame(ch=ch, status=status)
-
-# ============================================================
-# 超限处理由 Global_parameter.json 的 current.on_overflow 决定：
-#   "raise" -> 直接报错
-#   "clip"  -> 静默截断到上限
-# ============================================================
 
 class SerialMonitor:
     def __init__(self, ser: serial.Serial):
@@ -158,9 +109,6 @@ def main():
     cfg = get_setting()
 
     mode = cfg["shim"]["mode"]
-    port = cfg["serial"]["port"]
-    baud = cfg["serial"]["baudrate"]
-    timeout = cfg["serial"]["timeout_s"]
 
     csv_file = str(paths(cfg).shimming_csv())
 

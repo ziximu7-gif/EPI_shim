@@ -39,11 +39,6 @@
       "resolution_mA": 1
     },
 
-    "test": {
-      "_comment": "coil_control.py 单通道连通性测试用电流",
-      "single_channel_mA": 500
-    },
-
     "calibration_mA": [100, 300, 500, 800],
     "basis_scan_A": 0.5,
     "reference_A": 0.0
