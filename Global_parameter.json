@@ -16,6 +16,13 @@
     "shimming_currents_csv": "shimming_currents.csv"
   },
 
+  "shim": {
+    "_comment": "匀场模式：global=全局匀场；slice_wise_tra=轴向分层；slice_wise_cor=冠状分层；slice_wise_sag=矢状分层",
+    "mode": "global",
+    "sessions": [1, 2, 3, 4, 5, 6, 7, 8, 10],
+    "_sessions_comment": "线圈扫描对应的 session 编号，代码自动格式化为 ses-01 形式,其中第一个序号是参考baseline"
+  },
+  
   "serial": {
     "port": "COM11",
     "baudrate": 115200,
@@ -42,14 +49,6 @@
     "calibration_mA": [100, 300, 500, 800],
     "basis_scan_A": 0.5,
     "reference_A": 0.0
-  },
-
-  "shim": {
-    "_comment": "匀场模式：global=全局匀场；slice_wise_tra=轴向分层；slice_wise_cor=冠状分层；slice_wise_sag=矢状分层",
-    "mode": "global",
-    "sessions": [1, 2, 3, 4, 5, 6, 7, 8, 10],
-    "_sessions_comment": "线圈扫描对应的 session 编号，代码自动格式化为 ses-01 形式",
-    "base_session": "ses-01"
   },
 
   "control": {

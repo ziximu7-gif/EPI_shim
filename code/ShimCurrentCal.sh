@@ -1,17 +1,17 @@
 set -xeuo pipefail
 # bash code/ShimCurrentCal.sh
-sub_name="sub-03"
-subj_list=(ses-01 ses-02  ses-03  ses-04  ses-05  ses-06  ses-07  ses-08  ses-10)
 root_dir=$PWD
+sub_name=$(PYTHONPATH="$root_dir/code" python -c 'from config import paths; print(paths().subject)')
+mapfile -t subj_list < <(
+    PYTHONPATH="$root_dir/code" python -c 'from config import paths; print(*paths().sessions, sep="\n")'
+)
 data_dir="${root_dir}/data/${sub_name}"
 code_path_b0map="${root_dir}/code/B0mapCal.ipynb"
 code_path_coil_shim="${root_dir}/code/CoilSliceCurrentCalculation.ipynb"
-# b0 map编号，同时作为padding的master文件
-# 如果需要有同名文件覆盖功能，到代码里去找调用afni的部分加一个参数
-base_session="ses-01"
-
+base_session="${subj_list[0]}"
 MASTER_FILE="${root_dir}/data/${sub_name}/${base_session}/${sub_name}_dir-AP-seepi.nii.gz"
-
+echo "请完成扫描，并将全部数据复制到 ${data_dir}"
+read -r -p "数据复制完成后按 Enter 开始计算..." _
 for subj in "${subj_list[@]}"
 do
     sub_data_dir="${data_dir}/${subj}"

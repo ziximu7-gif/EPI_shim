@@ -146,7 +146,17 @@ class Paths:
         self.csv_name = str(d.get("shimming_currents_csv", "shimming_currents.csv"))
 
         shim = cfg.get("shim", {})
-        self.base_session = str(shim.get("base_session", "ses-01"))
+        self.sessions = [
+            f"ses-{int(i):02d}"
+            for i in shim.get("sessions", [])
+        ]
+
+        if not self.sessions:
+            raise ValueError("shim.sessions cannot be empty")
+
+        self.base_session = self.sessions[0]
+
+        self.coil_sessions = self.sessions[1:]
         self.sessions = [f"ses-{int(i):02d}" for i in shim.get("sessions", [])]
         # 线圈扫描 session（去掉基准 session）
         self.coil_sessions = [s for s in self.sessions if s != self.base_session]
