@@ -7,6 +7,7 @@ import serial
 # 串口参数统一来自项目根目录 Global_parameter.json
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "code"))
 from config import get_setting
+from serialMonitor import iter_frames
 
 _cfg = get_setting()
 

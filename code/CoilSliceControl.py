@@ -5,6 +5,7 @@ import threading
 import csv
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
+from serialSession import coil_session
 
 import math
 from config import get_setting, paths
@@ -171,39 +172,22 @@ def main():
 
     print(f"Shim mode: {mode}")
     print(f"Loaded {len(shimming_layers)} current sets")
-
-    with serial.Serial(port, baudrate=baud, timeout=timeout) as ser:
-        ser.reset_input_buffer()
-
-        mon = SerialMonitor(ser)
-        mon.start()
-
-        try:
-            if mode == "global":
-                print("Global shim mode")
-                input("Press ENTER to apply global currents...")
-                apply_currents(ser, shimming_layers[0])
-
-                input(
-                    "Global currents are active. "
-                    "Press ENTER after scan to finish..."
-                )
-
-            else:
-                total = len(shimming_layers)
-
-                for idx, currents in enumerate(shimming_layers):
-                    print(f"Slice {idx+1}/{total}")
-                    input("Press ENTER to apply slice currents...")
-
-                    apply_currents(ser, currents)
-
-        finally:
-            try:
-                reset_all_currents(ser)
-            finally:
-                mon.stop()
-
+    
+    with coil_session(cfg) as ser:
+        if mode == "global":
+            print("Global shim mode")
+            input("Press ENTER to apply global currents...")
+            apply_currents(ser, shimming_layers[0])
+            input(
+                "Global currents are active. "
+                "Press ENTER after scan to finish..."
+            )
+        else:
+            total = len(shimming_layers)
+            for idx, currents in enumerate(shimming_layers):
+                print(f"Slice {idx+1}/{total}")
+                input("Press ENTER to apply slice currents...")
+                apply_currents(ser, currents)
 
 if __name__ == "__main__":
     main()
