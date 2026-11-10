@@ -132,7 +132,6 @@ def main():
 
         for rep, actions in enumerate(schedule):
             wait_trigger()
-            mon.flush()
 
             sent_cmds = []
             for (ch, direction, mA) in actions:

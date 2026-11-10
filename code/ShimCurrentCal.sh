@@ -5,7 +5,7 @@ subj_list=(ses-01 ses-02  ses-03  ses-04  ses-05  ses-06  ses-07  ses-08  ses-10
 root_dir=$PWD
 data_dir="${root_dir}/data/${sub_name}"
 code_path_b0map="${root_dir}/code/B0mapCal.ipynb"
-code_path_coil_shim="${root_dir}/code/Coil_Slice_Current_Shim.ipynb"
+code_path_coil_shim="${root_dir}/code/CoilSliceCurrentCalculation.ipynb"
 # b0 map编号，同时作为padding的master文件
 # 如果需要有同名文件覆盖功能，到代码里去找调用afni的部分加一个参数
 base_session="ses-01"

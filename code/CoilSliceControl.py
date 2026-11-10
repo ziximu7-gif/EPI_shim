@@ -6,8 +6,9 @@ import csv
 from dataclasses import dataclass
 from typing import Iterator, Optional, List
 
+import math
 from config import get_setting, paths
-from dacControl import send_dac_cmd
+from dacControl import make_dac_cmd, send_dac_cmd
 
 def iter_frames(ser: serial.Serial) -> Iterator[bytes]:
     buf = bytearray()
@@ -90,70 +91,156 @@ class SerialMonitor:
                 print(f"{ts:.6f} RX STATUS: ch={st.ch} status={st.status}")
 
 
+
 def load_shimming_data(file_path: str):
-    """
-    加载 CSV 数据。
-    CSV 结构：
-    第 1 行：编号 (跳过)
-    第 2-9 行：通道 1-8 的电流值 (单位由 Global_parameter.json 的 control.csv_current_unit 指定，
-              目前为 A)
-    返回格式：List[List[int]] -> 每层 8 个以 mA 为单位的电流值
-    """
     cfg = get_setting()
-    slice_count = int(cfg["control"]["slice_count"])
-    csv_unit_is_A = str(cfg["control"].get("csv_current_unit", "A")).upper() == "A"
-    scale = 1000.0 if csv_unit_is_A else 1.0
-
-    # 初始化各层，每层准备存放 8 个通道的数据
-    layers_data = [[] for _ in range(slice_count)]
-
-    with open(file_path, 'r') as f:
-        reader = list(csv.reader(f))
-        for row in reader[1:9]:
-            for layer_idx, val in enumerate(row):
-                if layer_idx < slice_count:
-                    current_mA = round(float(val) * scale)
-                    layers_data[layer_idx].append(current_mA)
-
+    mode = cfg["shim"]["mode"]
+    unit = str(cfg["control"]["csv_current_unit"]).upper()
+    if unit not in ("A", "MA"):
+        raise ValueError(f"Unsupported CSV current unit: {unit}")
+    scale = 1000.0 if unit == "A" else 1.0
+    with open(file_path, "r", newline="", encoding="utf-8-sig") as f:
+        rows = list(csv.reader(f))
+    if len(rows) != 9:
+        raise ValueError(
+            f"Expected header + 8 coil rows, got {len(rows)} rows"
+        )
+    data_rows = rows[1:]
+    n_cols = len(data_rows[0])
+    if n_cols == 0 or any(len(row) != n_cols for row in data_rows):
+        raise ValueError("CSV column counts are inconsistent")
+    slice_modes = (
+        "slice_wise_tra",
+        "slice_wise_cor",
+        "slice_wise_sag",
+    )
+    if mode == "global":
+        expected_cols = 1
+    elif mode in slice_modes:
+        expected_cols = int(cfg["control"]["slice_count"])
+    else:
+        raise ValueError(f"Unsupported shim mode: {mode}")
+    if n_cols != expected_cols:
+        raise ValueError(
+            f"Mode {mode} expects {expected_cols} columns, "
+            f"but CSV contains {n_cols}"
+        )
+    layers_data = []
+    for col in range(n_cols):
+        currents = []
+        for ch in range(8):
+            value = float(data_rows[ch][col])
+            if not math.isfinite(value):
+                raise ValueError(
+                    f"Invalid current: ch{ch+1}, column {col+1}"
+                )
+            currents.append(round(value * scale))
+        layers_data.append(currents)
     return layers_data
 
-# --- 主程序 ---
+def apply_currents(ser, currents):
+    if len(currents) != 8:
+        raise ValueError("Exactly 8 channel currents are required")
+    for channel, current_mA in enumerate(currents, start=1):
+        cmd = send_dac_cmd(ser, channel, current_mA)
+        actual_mA = int.from_bytes(
+            cmd[5:9], byteorder="little", signed=True
+        )
+        print(
+            f"CH{channel}: requested={current_mA} mA, "
+            f"sent={actual_mA} mA, "
+            f"HEX={cmd.hex(' ').upper()}"
+        )
+    ser.flush()
+
+
+def reset_all_currents(ser):
+    """退出时尝试将全部8个通道设为0 mA。"""
+    print("Resetting all channels to 0 mA...")
+    errors = []
+    for channel in range(1, 9):
+        try:
+            cmd = send_dac_cmd(ser, channel, 0)
+            print(
+                f"CH{channel}: 0 mA -> "
+                f"{cmd.hex(' ').upper()}"
+            )
+        except Exception as exc:
+            errors.append(channel)
+            print(f"CH{channel} reset failed: {exc}")
+    try:
+        ser.flush()
+    except Exception as exc:
+        print(f"Serial flush failed: {exc}")
+        errors.append("serial_flush")
+
+    if errors:
+        raise RuntimeError(
+            f"Reset commands could not be completed: {errors}"
+        )
+
+
 
 def main():
     cfg = get_setting()
-    PORT = cfg["serial"]["port"]
-    BAUD = cfg["serial"]["baudrate"]
-    slice_count = int(cfg["control"]["slice_count"])
-    CSV_FILE = str(paths(cfg).shimming_csv())
 
-    # 1. 加载电流数据
-    shimming_layers = load_shimming_data(CSV_FILE)
-    print(f"Successfully loaded {len(shimming_layers)} layers from {CSV_FILE}")
+    mode = cfg["shim"]["mode"]
+    port = cfg["serial"]["port"]
+    baud = cfg["serial"]["baudrate"]
+    timeout = cfg["serial"]["timeout_s"]
 
-    # 2. 启动串口和监控
-    with serial.Serial(PORT, baudrate=BAUD, timeout=cfg["serial"]["timeout_s"]) as ser:
+    csv_file = str(paths(cfg).shimming_csv())
+
+    shimming_layers = load_shimming_data(csv_file)
+
+    for currents in shimming_layers:
+        for channel, val in enumerate(currents, start=1):
+            make_dac_cmd(channel, val)
+
+    print(f"Shim mode: {mode}")
+    print(f"Loaded {len(shimming_layers)} current sets")
+
+    with serial.Serial(port, baudrate=baud, timeout=timeout) as ser:
+        ser.reset_input_buffer()
+
         mon = SerialMonitor(ser)
         mon.start()
 
-        print("\n--- Dynamic Shimming Control Started ---")
+        try:
+            if mode == "global":
+                print("Global shim mode")
+                input("Press ENTER to apply global currents...")
+                apply_currents(ser, shimming_layers[0])
 
-        for idx, currents in enumerate(shimming_layers):
-            print(f"\n[Layer {idx+1}/{slice_count}] Ready to switch.")
-            print("Press ENTER to send currents, or Ctrl+C to quit...")
-            input() 
+                input(
+                    "Global currents are active. "
+                    "Press ENTER after scan to finish..."
+                )
 
-            # 清空缓存
-            mon.flush()
+            else:
+                total = len(shimming_layers)
 
-            # 构造并发送该层所有 8 个通道的命令
-            print(f"Sending currents for Layer {idx+1}: {currents}")
-            for ch_idx, val in enumerate(currents):
-                channel = ch_idx + 1
-                cmd = send_dac_cmd(ser, channel, val)
-                print(f"CH{channel}: {val} mA -> "f"{cmd.hex(' ').upper()}")
+                for idx, currents in enumerate(shimming_layers):
+                    print(f"Slice {idx+1}/{total}")
+                    input("Press ENTER to apply slice currents...")
 
-        print(f"\nAll {slice_count} layers completed.")
-        mon.stop()
+                    apply_currents(ser, currents)
+
+        finally:
+            # 尽力在退出时将8通道归零
+            try:
+                if cfg["stage4_online_control"].get(
+                    "send_zero_on_exit", True
+                ):
+                    print("Resetting all channels to 0 mA...")
+
+                    for ch in range(1, 9):
+                        send_dac_cmd(ser, ch, 0)
+
+                    ser.flush()
+            finally:
+                mon.stop()
+
 
 if __name__ == "__main__":
     main()

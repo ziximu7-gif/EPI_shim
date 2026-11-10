@@ -117,7 +117,7 @@ def _validate(cfg: Dict[str, Any], path: Path) -> None:
     if max(pos, neg) * 1000.0 > protocol_max:
         raise ValueError(
             f"{path}: current limit {max(pos, neg)} A exceeds DAC protocol maximum "
-            f"{protocol_max} mA (4 hex digits)."
+            f"{protocol_max} mA (configured safety limit)."
         )
 
     if cfg["current"].get("on_overflow", "raise") not in ("raise", "clip"):

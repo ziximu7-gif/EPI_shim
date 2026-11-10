@@ -117,14 +117,6 @@
       "shim_coeff_csv": "./project_data/shim_result/dynamic_shim_slice_currents.csv",
       "shim_coeff_mat": "./project_data/shim_result/dynamic_shim_result.mat"
     }
-  },
-
-  "stage4_online_control": {
-    "enabled": true,
-    "trigger_mode": "manual_enter",
-    "send_zero_before_each_slice": true,
-    "send_zero_on_exit": true,
-    "min_valid_voxels": 150,
-    "slice_table_csv": "./project_data/shim_result/dynamic_shim_slice_currents.csv"
   }
+
 }
