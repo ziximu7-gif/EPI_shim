@@ -5,45 +5,6 @@ from config import get_setting, paths
 from dacControl import make_dac_cmd, send_dac_cmd
 from serialSession import coil_session
 
-
-class SerialMonitor:
-    def __init__(self, ser: serial.Serial):
-        self.ser = ser
-        self.frames = iter_frames(ser)
-        self.stop_evt = threading.Event()
-        self.flush_evt = threading.Event()
-        self.thread = threading.Thread(target=self._run, daemon=True)
-
-    def start(self):
-        self.thread.start()
-
-    def stop(self):
-        self.stop_evt.set()
-        self.thread.join(timeout=1.0)
-
-    def flush(self):
-        self.ser.reset_input_buffer()
-        self.flush_evt.set()
-
-    def _run(self):
-        while not self.stop_evt.is_set():
-            try:
-                frame = next(self.frames)
-            except Exception as e:
-                print("MONITOR ERROR:", e)
-                return
-            if self.flush_evt.is_set():
-                self.flush_evt.clear()
-                continue
-            st = parse_status_frame(frame)
-            ts = time.perf_counter()
-            if st is None:
-                print(f"{ts:.6f} RX RAW: {frame!r}")
-            else:
-                print(f"{ts:.6f} RX STATUS: ch={st.ch} status={st.status}")
-
-
-
 def load_shimming_data(file_path: str):
     cfg = get_setting()
     mode = cfg["shim"]["mode"]
