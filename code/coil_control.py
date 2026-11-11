@@ -15,7 +15,7 @@ def main():
     cfg = get_setting()
     PORT = cfg["serial"]["port"]
     BAUD = cfg["serial"]["baudrate"]
-    current_test = int(cfg["current"]["test"]["single_channel_mA"])
+    current_test = round(float(cfg["current"]["basis_scan_A"]) * 1000)
 
     schedule = [
         [(1, 1, 0)],
@@ -38,6 +38,7 @@ def main():
                 cmd = send_dac_cmd(ser, ch, signed_mA)
                 sent_cmds.append(cmd.hex(" ").upper())
             print(f"[rep={rep}] TX cmds: {sent_cmds}")
+        input("CH8 扫描完成后按 Enter，所有线圈将归零...")
 
 if __name__ == "__main__":
     main()

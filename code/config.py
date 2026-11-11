@@ -157,9 +157,6 @@ class Paths:
         self.base_session = self.sessions[0]
 
         self.coil_sessions = self.sessions[1:]
-        self.sessions = [f"ses-{int(i):02d}" for i in shim.get("sessions", [])]
-        # 线圈扫描 session（去掉基准 session）
-        self.coil_sessions = [s for s in self.sessions if s != self.base_session]
 
     def b0map(self, session: str) -> Path:
         """某个 session 的 B0 图路径。"""
