@@ -2,6 +2,8 @@ set -xeuo pipefail
 # bash code/ShimCurrentCal.sh
 root_dir=$PWD
 
+python "$root_dir/code/coil_control.py"
+
 echo "请先完成扫描，修改 Global_parameter.json"
 read -r -p "全部准备完成后按 Enter 开始计算..." _
 
