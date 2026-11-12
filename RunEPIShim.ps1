@@ -9,7 +9,7 @@ Read-Host "扫描结束。请选择数据、修改 JSON、复制文件，完成�
 
 $LinuxHost = "muzixi@192.168.233.128"
 $LinuxRepo = "/home/muzixi/MRI_Share/ECC_Project/EPI_shim"
-ssh $LinuxHost "cd '$LinuxRepo' && UV_PROJECT_ENVIRONMENT=/home/muzixi/.venvs/EPI_shim /home/muzixi/.local/bin/uv run bash code/ShimCurrentCal.sh"
+ssh $LinuxHost "cd '$LinuxRepo' && export PATH=/home/muzixi/abin:`$PATH && UV_PROJECT_ENVIRONMENT=/home/muzixi/.venvs/EPI_shim /home/muzixi/.local/bin/uv run bash code/ShimCurrentCal.sh"
 if ($LASTEXITCODE -ne 0) {
     throw "Linux 计算失败"
 }

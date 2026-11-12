@@ -97,6 +97,7 @@ def main():
                 print(f"Slice {idx+1}/{total}")
                 input("Press ENTER to apply slice currents...")
                 apply_currents(ser, currents)
+            input("最后一层扫描完成后按 Enter，所有线圈将归零...")
 
 if __name__ == "__main__":
     main()
