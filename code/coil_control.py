@@ -18,7 +18,7 @@ def main():
     current_test = round(float(cfg["current"]["basis_scan_A"]) * 1000)
 
     schedule = [
-        [(1, 1, 0)],
+        [(ch, 1, 0) for ch in range(1, 9)],
         [(1, 1, current_test)],
         [(1, 1, 0), (2, 1, current_test)],
         [(2, 1, 0), (3, 1, current_test)],

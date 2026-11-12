@@ -2,11 +2,6 @@ set -xeuo pipefail
 # bash code/ShimCurrentCal.sh
 root_dir=$PWD
 
-python "$root_dir/code/coil_control.py"
-
-echo "请先完成扫描，修改 Global_parameter.json"
-read -r -p "全部准备完成后按 Enter 开始计算..." _
-
 sub_name=$(PYTHONPATH="$root_dir/code" python -c 'from config import paths; print(paths().subject)')
 mapfile -t subj_list < <(
     PYTHONPATH="$root_dir/code" python -c 'from config import paths; print(*paths().sessions, sep="\n")'
@@ -16,8 +11,6 @@ code_path_b0map="${root_dir}/code/B0mapCal.ipynb"
 code_path_coil_shim="${root_dir}/code/CoilSliceCurrentCalculation.ipynb"
 base_session="${subj_list[0]}"
 MASTER_FILE="${root_dir}/data/${sub_name}/${base_session}/${sub_name}_dir-AP-seepi.nii.gz"
-echo "请完成扫描，并"
-read -r -p "数据复制完成后按 Enter 开始计算..." _
 for subj in "${subj_list[@]}"
 do
     sub_data_dir="${data_dir}/${subj}"
