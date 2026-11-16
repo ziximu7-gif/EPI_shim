@@ -11,7 +11,7 @@ BDAC + 通道号(ASCII) + 电流(int32, 小端序) + OV
 """
 
 from operator import index
-
+import time
 from config import get_current_limits_mA, on_overflow_mode
 
 
@@ -53,10 +53,14 @@ def make_dac_cmd(channel: int, current_mA: int) -> bytes:
     )
 
 def send_dac_cmd(ser, channel: int, current_mA: int) -> bytes:
-    """生成指令并通过已经打开的串口发送。"""
+    """生成指令并通过串口发送，等待设备处理。"""
 
     cmd = make_dac_cmd(channel, current_mA)
+
     ser.write(cmd)
+    ser.flush()
+    time.sleep(0.1)
+
     return cmd
 
 def reset_all_currents(ser):

@@ -16,8 +16,30 @@ do
     sub_data_dir="${data_dir}/${subj}"
     echo "Processing ${subj} in ${sub_data_dir}..."
     
+    rm -f \
+        "$sub_data_dir/AP_mean.nii.gz" \
+        "$sub_data_dir/PA_mean.nii.gz" \
+        "$sub_data_dir/distort_corr.nii.gz" \
+        "$sub_data_dir/distort_corr_PLUS_WARP.nii.gz" \
+        "$sub_data_dir/distort_corr_MINUS_WARP.nii.gz" \
+        "$sub_data_dir/B0_map_Hz_Whole_FOV.nii.gz" \
+        "$sub_data_dir/B0_map_Hz_to_master.nii.gz" \
+        "$sub_data_dir/brain_mask.nii.gz" \
+        "$sub_data_dir/B0_map_Hz_to_master_masked.nii.gz"
     ipython "$code_path_b0map" "$sub_data_dir" "$MASTER_FILE" "$sub_name"
+
+    if [[ ! -s "$sub_data_dir/B0_map_Hz_to_master_masked.nii.gz" ]]; then
+        echo "ERROR: B0 map generation failed for $subj"
+        exit 1
+    fi
 done
 # current calculation
-
+csv_file="${data_dir}/shimming_currents.csv"
+rm -f "$csv_file"
 ipython "$code_path_coil_shim" "$data_dir" "$sub_name" "${subj_list[*]}" "$base_session"
+
+if [[ ! -s "$csv_file" ]]; then
+    echo "ERROR: Shim current calculation failed. CSV was not generated."
+    exit 1
+fi
+echo "Shim calculation completed: $csv_file"

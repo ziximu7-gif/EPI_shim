@@ -3,6 +3,7 @@
 from config import get_setting
 from dacControl import send_dac_cmd
 from serialSession import coil_session
+import time
 
 def wait_trigger() -> None:
     print("WAIT_TRIGGER: press ENTER...")
