@@ -25,7 +25,8 @@ do
         "$sub_data_dir/B0_map_Hz_Whole_FOV.nii.gz" \
         "$sub_data_dir/B0_map_Hz_to_master.nii.gz" \
         "$sub_data_dir/brain_mask.nii.gz" \
-        "$sub_data_dir/B0_map_Hz_to_master_masked.nii.gz"
+        "$sub_data_dir/B0_map_Hz_to_master_masked.nii.gz" \
+        "$sub_data_dir/brain_mask_to_master.nii.gz"
     ipython "$code_path_b0map" "$sub_data_dir" "$MASTER_FILE" "$sub_name"
 
     if [[ ! -s "$sub_data_dir/B0_map_Hz_to_master_masked.nii.gz" ]]; then
