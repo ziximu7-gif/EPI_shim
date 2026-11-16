@@ -1,7 +1,5 @@
 # 需要检查串口号是否正确
 # 目前发出命令同一轮次命令之间没有间隔，如果出现问题可以加一个短等待
-from serialMonitor import SerialMonitor
-
 from config import get_setting
 from dacControl import send_dac_cmd
 from serialSession import coil_session
