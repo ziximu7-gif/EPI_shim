@@ -1,3 +1,6 @@
+.\RunEPIShim.ps1
+启动匀场流程
+
 Global parameters store in Global_parameter.json
 
 在Global_parameter.json中主要需要注意修改恒流源串口号、校准数据储存编号，目前默认是ses-01这种格式，只需要修改末位数字

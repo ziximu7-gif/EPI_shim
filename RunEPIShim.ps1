@@ -2,7 +2,7 @@
 Set-Location $PSScriptRoot
 
 # 1. Windows: coil calibration
-python .\code\coil_control.py
+uv run python .\code\coil_control.py
 if ($LASTEXITCODE -ne 0) {
     throw "Coil calibration failed"
 }
@@ -27,7 +27,7 @@ Write-Host "计算完成，准备进入匀场控制"
 
 Read-Host "准备进入匀场控制，按 Enter 启动电流控制程序"
 
-python .\code\CoilSliceControl.py
+uv run python .\code\CoilSliceControl.py
 
 if ($LASTEXITCODE -ne 0) {
     throw "Shim current control failed"
