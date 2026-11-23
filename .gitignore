@@ -50,10 +50,6 @@ desktop.ini
 
 # ---------- 运行产物 / 临时文件 ----------
 logs/
+/stability_results/
 *.log
 octave-workspace
-# ---------- 运行产物 / 临时文件 ----------
- logs/
-+/stability_results/
- *.log
- octave-workspace
