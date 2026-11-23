@@ -191,9 +191,6 @@ def record_test(args: argparse.Namespace, out_dir: Path,
     print(f"\nPort={port}, baud={baud}, targets(mA)={list(targets)}")
     print(f"Run length={args.minutes} min; software provisional temperature stop={args.temp_limit_c} C")
     print(f"Untrusted temperature channels={sorted(args.untrusted_temp_channels)}")
-    print("WARNING: serial temperatures are UNVERIFIED; CH5 (and prior samples CH8) are suspect.")
-    print("WARNING: three ice packs do NOT replace cooling-flow/temperature protection.")
-    print("Stay with the equipment. Ensure independent thermal interlock + emergency shutdown.")
     response = input("Type RUN to begin ONE high-current test (anything else cancels): ").strip()
     if response != "RUN":
         raise RuntimeError("Cancelled before opening the serial port")
@@ -350,9 +347,13 @@ def output_plots_and_stats(out_dir: Path, untrusted_temp_channels: set[int]) -> 
     stride = max(1, len(t) // 5000)
     indices = range(0, len(t), stride)
 
-    def create_plot(filename: str, title: str, ylabel: str, mode: str) -> None:
+    def create_plot(filename: str, title: str, ylabel: str, mode: str,
+                    channels=None) -> None:
+        if channels is None:
+            channels = range(1, 9)
+
         fig, ax = plt.subplots(figsize=(12, 6))
-        for ch in range(1, 9):
+        for ch in channels:
             if mode == "current":
                 key = f"current_CH{ch}_mA"
                 vals = [int(records[i][key]) for i in indices]
@@ -401,6 +402,21 @@ def output_plots_and_stats(out_dir: Path, untrusted_temp_channels: set[int]) -> 
     create_plot("02_current_error_mA.png", "Feedback minus commanded current", "Current error (mA)", "error")
     create_plot("03_temp_candidate_C.png", "Candidate temperatures (NOT validated)",
                 "Candidate temperature (deg C)", "temperature")
+    create_plot(
+        "04_temp_candidate_C_excl_CH5_CH8.png",
+        "Candidate temperatures (excluding CH5 and CH8; NOT validated)",
+        "Candidate temperature (deg C)",
+        "temperature",
+        channels=[1, 2, 3, 4, 6, 7]
+    )
+    # 新增：排除 CH5 的电流误差图
+    create_plot(
+        "05_current_error_excl_CH5.png",
+        "Current error (excluding CH5)",
+        "Current error (mA)",
+        "error",
+        channels=[1, 2, 3, 4, 6, 7, 8]
+    )
     print(f"Graphs and summary saved in: {out_dir}")
 
 
