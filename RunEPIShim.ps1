@@ -1,6 +1,8 @@
 ﻿$ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 $ValidationSession = "ses-AfterShim"
+$config = Get-Content (Join-Path $PSScriptRoot "Global_parameter.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+$subject = $config.data.subject
 # 1. Windows: coil calibration
 uv run python .\code\coil_control.py
 if ($LASTEXITCODE -ne 0) {
@@ -32,8 +34,6 @@ uv run python .\code\CoilSliceControl.py
 if ($LASTEXITCODE -ne 0) {
     throw "Shim current control failed"
 }
-
-Write-Host "Workflow finished"
 
 $validationFolder = "data/$subject/$ValidationSession"
 Write-Host "匀场后扫描结束。请将本次 AP/PA EPI 数据和 AP JSON 手动复制到："

@@ -28,7 +28,7 @@
   "current": {
     "limits": {
       "_comment": "优化器 lsq_linear 的上下界，同时作为下发 DAC 前的硬限幅。支持非对称。",
-      "positive_A": 2.4,
+      "positive_A": 2.5,
       "negative_A": 2.0
     },
 
